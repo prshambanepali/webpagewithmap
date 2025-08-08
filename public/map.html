@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Origin Location Picker</title>
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    .coords {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 15px;
+      background: #4285F4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #2a64c5;
+    }
+  </style>
+</head>
+<body>
+  <h2>Select Your Origin Location</h2>
+  <p>Please allow location access or click on the map to set your origin.</p>
+  <div id="map"></div>
+  <div class="coords">Lat: <span id="lat"></span> | Lng: <span id="lng"></span></div>
+  <button id="saveBtn">Save Location</button>
+
+  <!-- Google Maps API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAYpiEWnHcJb8VXwvAdWRs9rcG3NS5SI84&callback=initMap" async defer></script>
+
+  <script>
+    let map, marker;
+    let latElem = document.getElementById("lat");
+    let lngElem = document.getElementById("lng");
+
+    function updateCoords(lat, lng) {
+      latElem.textContent = lat.toFixed(6);
+      lngElem.textContent = lng.toFixed(6);
+    }
+
+    function initMap() {
+      // Default: Kathmandu
+      let defaultPos = { lat: 28.3949, lng: 84.1240 };
+
+
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: defaultPos,
+        zoom: 8
+      });
+
+      marker = new google.maps.Marker({
+        position: defaultPos,
+        map: map,
+        draggable: true
+      });
+
+      updateCoords(defaultPos.lat, defaultPos.lng);
+
+      // Auto-detect user location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            let userPos = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            map.setCenter(userPos);
+            map.setZoom(12);
+            marker.setPosition(userPos);
+            updateCoords(userPos.lat, userPos.lng);
+          },
+          function() {
+            console.warn("Location access denied.");
+          }
+        );
+      }
+
+      // Drag event
+      marker.addListener("dragend", function () {
+        let pos = marker.getPosition();
+        updateCoords(pos.lat(), pos.lng());
+      });
+
+      // Click event
+      map.addListener("click", function (e) {
+        marker.setPosition(e.latLng);
+        updateCoords(e.latLng.lat(), e.latLng.lng());
+      });
+
+      // Save button
+      document.getElementById("saveBtn").addEventListener("click", function() {
+        let pos = marker.getPosition();
+
+        let metadata = {
+          user_id: "12345", // Replace with logged-in user/session ID
+          lat: pos.lat(),
+          lng: pos.lng()
+        };
+
+        // Send to backend
+        fetch("/save-location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(metadata)
+        })
+        .then(res => res.json())
+        .then(response => {
+          console.log("Saved:", response);
+          alert("Location saved successfully!");
+          // Optionally: redirect to voice recording page
+          // window.location.href = "/record-voice";
+        })
+        .catch(err => {
+          console.error("Error saving location:", err);
+          alert("Failed to save location.");
+        });
+      });
+    }
+  </script>
+</body>
+</html>
